@@ -3,7 +3,7 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use crate::{app_state::AppState, logging_table::LoggingTable};
 use crate::LOGGING_TABLE_NAME;
 
-pub async fn get_query(
+pub async fn post_query(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     let query = format!("select * from {LOGGING_TABLE_NAME} limit 10");

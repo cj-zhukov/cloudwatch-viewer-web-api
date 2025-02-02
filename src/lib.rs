@@ -8,7 +8,7 @@ use crate::routes::*;
 
 use app_state::AppState;
 use aws_sdk_cloudwatchlogs::Client;
-use axum::{routing::get, serve::Serve, Router};
+use axum::{routing::{get, post}, serve::Serve, Router};
 use color_eyre::Result;
 use logging_table::LoggingTable;
 use tracing_subscriber::layer::SubscriberExt;
@@ -29,7 +29,7 @@ impl Application {
         let router = Router::new()
             .route("/", get(|| async { "CloudWatchViewer App" }))
             .route("/alive", get(ping))
-            .route("/query", get(get_query))
+            .route("/query", post(post_query))
             .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
