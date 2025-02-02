@@ -1,0 +1,23 @@
+[package]
+name = "cloudwatch-viewer-web-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros"] }
+color-eyre = "0.6.3"
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15.7"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features= ["full"] }
+tokio-stream = "0.1"
+tower-http = { version = "0.6", features = ["trace", "cors", "trace"] }
+thiserror = "1.0.58"
+tracing = "0.1.40"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter"] }
+
+[dev-dependencies]
+reqwest = { version = "0.11.26", features = ["json"] }
