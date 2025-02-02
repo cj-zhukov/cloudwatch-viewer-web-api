@@ -1,0 +1,74 @@
+openapi: 3.0.0
+info:
+  title: AWS CloudWatch Viwer Web Api
+  description: API for quering AWS CloudWatch with sql
+  version: 1.0.0
+
+servers:
+  - url: 'http://cloudwatch-viewer-web.com/api'
+    description: Main server
+
+paths:
+  /alive:
+    get:
+      summary: Check is service alive
+      description: This route serves checking service status
+      responses:
+        '200':
+          description: Service is alive
+
+  /query:
+    post:
+      summary: Select logs data using sql query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+              example:
+                query: select * from logs limit 10
+      responses:
+        '200':
+          description: Data selected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Data selected successfully
+    
+components:
+  schemas:
+    FilesList:
+      type: object
+      properties:
+        log_stream_name:
+          type: string
+          example: "foo"
+        log_creation_time:
+          type: int
+          example: "123"
+        first_event_timestamp:
+          type: int
+          example: "123"
+        last_event_timestamp:
+          type: int
+          example: "123"
+        last_ingestion_time:
+          type: int
+          example: "123"
+        timestamp:
+          type: int
+          example: "123"
+        message:
+          type: string
+          example: "foobarbaz"
+        ingestion_time:
+          type: int
+          example: "123"
