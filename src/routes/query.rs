@@ -1,8 +1,8 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
+use crate::logging_table::query_validator;
 use crate::ApiError;
-use crate::LOGGING_TABLE_NAME;
 use crate::{app_state::AppState, logging_table::LoggingTable};
 
 #[derive(Deserialize)]
@@ -21,8 +21,14 @@ pub async fn post_query(
     Json(input): Json<Request>,
 ) -> Result<impl IntoResponse, ApiError> {
     let query = match input.query {
-        Some(v) => v,
-        None => format!("select * from {LOGGING_TABLE_NAME} limit 10"),
+        Some(v) => {
+            match query_validator(&v) {
+                true => v,
+                false => return Err(ApiError::IncorrectQuery)
+            }
+        },
+        // None => format!("select * from {LOGGING_TABLE_NAME} limit 10"),
+        None => return Err(ApiError::IncorrectQuery)
     };
     let df = state
         .ctx
@@ -33,11 +39,7 @@ pub async fn post_query(
         .await
         .map_err(|e| ApiError::UnexpectedError(e.into()))?;
     if res.is_empty() {
-        let response = Response {
-            message: "Table selected".to_string(),
-            content: None,
-        };
-        return Ok((StatusCode::NOT_FOUND, Json(response)));
+        return Err(ApiError::QueryResultIsEmpty);
     }
 
     let response = Response {

@@ -223,3 +223,10 @@ async fn processs_log(
     }
     Ok(res)
 }
+
+pub fn query_validator(query: &str) -> bool {
+    if !query.contains("select") && !query.contains("SELECT") {
+        return false;
+    }
+    true
+}
