@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use color_eyre::Result;
+use crate::ClouWatchViewerError;
+
 use datafusion::{
     arrow::{
         array::{AsArray, Int64Array, RecordBatch, StringArray},
@@ -61,7 +62,7 @@ impl LoggingTable {
         ])
     }
 
-    pub async fn to_df(ctx: &SessionContext, records: &Vec<Self>) -> Result<DataFrame> {
+    pub async fn to_df(ctx: &SessionContext, records: &Vec<Self>) -> Result<DataFrame, ClouWatchViewerError> {
         let schema = Self::schema();
         let mut log_stream_names = vec![];
         let mut log_creation_times = vec![];
@@ -96,13 +97,12 @@ impl LoggingTable {
                 Arc::new(Int64Array::from(ingestion_times)),
             ],
         )?;
-
         Ok(ctx.read_batch(batch)?)
     }
 }
 
 impl LoggingTable {
-    pub async fn df_to_records(df: DataFrame) -> Result<Vec<Self>> {
+    pub async fn df_to_records(df: DataFrame) -> Result<Vec<Self>, ClouWatchViewerError> {
         let mut stream = df.execute_stream().await?;
         let mut records = vec![];
         while let Some(batch) = stream.next().await.transpose()? {
@@ -128,7 +128,6 @@ impl LoggingTable {
                 });
             }
         }
-
         Ok(records)
     }
 }

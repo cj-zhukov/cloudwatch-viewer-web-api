@@ -1,16 +1,18 @@
 pub mod app_state;
+pub mod error;
 pub mod logging_table;
 pub mod routes;
 pub mod utils;
 
 use crate::utils::constants::prod::LOGGING_TABLE_NAME;
 use crate::routes::*;
+use crate::error::ClouWatchViewerError;
+use crate::app_state::AppState;
 
-use app_state::AppState;
 use aws_sdk_cloudwatchlogs::Client;
 use axum::{routing::{get, post}, serve::Serve, Router};
-use color_eyre::Result;
 use logging_table::LoggingTable;
+use tokio::net::TcpListener;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -25,27 +27,27 @@ impl Application {
         Self { server, address }
     }
 
-    pub async fn build(address: &str, app_state: AppState) -> Result<Self> {        
+    pub async fn build(address: &str, app_state: AppState) -> Result<Self, ClouWatchViewerError> {        
         let router = Router::new()
             .route("/", get(|| async { "CloudWatchViewer App" }))
             .route("/alive", get(ping))
             .route("/query", post(post_query))
             .with_state(app_state);
 
-        let listener = tokio::net::TcpListener::bind(address).await?;
+        let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
         let server = axum::serve(listener, router);
         Ok(Application::new(server, address))
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(self) -> Result<(), ClouWatchViewerError> {
         tracing::info!("listening on {}", &self.address);
         self.server.await?;
         Ok(())
     }
 }
 
-pub fn init_tracing() -> Result<()> {
+pub fn init_tracing() -> Result<(), ClouWatchViewerError> {
     let fmt_layer = fmt::layer().compact();
     let filter_layer = EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
 
@@ -57,7 +59,7 @@ pub fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-pub async fn process_logging_table(client: Client, log_group_name: &str) -> Result<Vec<LoggingTable>> {
+pub async fn process_logging_table(client: Client, log_group_name: &str) -> Result<Vec<LoggingTable>, ClouWatchViewerError> {
     let log_streams = client
         .describe_log_streams()
         .log_group_name(log_group_name)
@@ -98,7 +100,7 @@ async fn processs_log(
     last_event_timestamp: Option<i64>,
     last_ingestion_time: Option<i64>,
     start_from_head: bool,
-) -> Result<Vec<LoggingTable>> {
+) -> Result<Vec<LoggingTable>, ClouWatchViewerError> {
     let log_events = client
         .get_log_events()
         .log_group_name(log_group_name)
