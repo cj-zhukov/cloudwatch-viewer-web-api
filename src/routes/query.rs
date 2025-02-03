@@ -1,9 +1,9 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-// use crate::error::ClouWatchViewerError;
-use crate::{app_state::AppState, logging_table::LoggingTable};
+use crate::ApiError;
 use crate::LOGGING_TABLE_NAME;
+use crate::{app_state::AppState, logging_table::LoggingTable};
 
 #[derive(Deserialize)]
 pub struct Request {
@@ -13,22 +13,36 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
     pub message: String,
-    pub content: Vec<LoggingTable>,
+    pub content: Option<Vec<LoggingTable>>,
 }
 
 pub async fn post_query(
     State(state): State<AppState>,
-    Json(input): Json<Request>
-) -> impl IntoResponse {
+    Json(input): Json<Request>,
+) -> Result<impl IntoResponse, ApiError> {
     let query = match input.query {
         Some(v) => v,
-        None => format!("select * from {LOGGING_TABLE_NAME} limit 10")
+        None => format!("select * from {LOGGING_TABLE_NAME} limit 10"),
     };
-    let df = state.ctx.sql(&query).await.unwrap();
-    let res = LoggingTable::df_to_records(df).await.unwrap();
+    let df = state
+        .ctx
+        .sql(&query)
+        .await
+        .map_err(|e| ApiError::UnexpectedError(e.into()))?;
+    let res = LoggingTable::df_to_records(df)
+        .await
+        .map_err(|e| ApiError::UnexpectedError(e.into()))?;
+    if res.is_empty() {
+        let response = Response {
+            message: "Table selected".to_string(),
+            content: None,
+        };
+        return Ok((StatusCode::NOT_FOUND, Json(response)));
+    }
+
     let response = Response {
         message: "Table selected".to_string(),
-        content: res,
+        content: Some(res),
     };
-    (StatusCode::OK, Json(response))
+    Ok((StatusCode::OK, Json(response)))
 }

@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use crate::ClouWatchViewerError;
-
 use datafusion::{
     arrow::datatypes::Schema, datasource::ViewTable, logical_expr::LogicalPlan,
     parquet::arrow::AsyncArrowWriter, prelude::*,
@@ -9,20 +7,19 @@ use datafusion::{
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio_stream::StreamExt;
 
+use crate::logging_table::error::LoggingTableError;
+
 pub async fn register_logging_table(
     ctx: &SessionContext,
     plan: LogicalPlan,
     table_name: &str,
-) -> Result<(), ClouWatchViewerError> {
+) -> Result<(), LoggingTableError> {
     let view = ViewTable::try_new(plan, None)?;
     ctx.register_table(table_name, Arc::new(view))?;
     Ok(())
 }
 
-pub async fn write_df_to_file(
-    df: DataFrame, 
-    file_path: &str,
-) -> Result<(), ClouWatchViewerError> {
+pub async fn write_df_to_file(df: DataFrame, file_path: &str) -> Result<(), LoggingTableError> {
     let mut buf = vec![];
     let schema = Schema::from(df.clone().schema());
     let mut stream = df.execute_stream().await?;

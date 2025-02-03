@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use crate::ClouWatchViewerError;
-
+use aws_sdk_cloudwatchlogs::Client;
 use datafusion::{
     arrow::{
         array::{AsArray, Int64Array, RecordBatch, StringArray},
@@ -9,9 +8,11 @@ use datafusion::{
     },
     prelude::*,
 };
-use serde::{Deserialize, Serialize};
 use itertools::izip;
+use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
+
+use super::error::LoggingTableError;
 
 // i64 expressed as the number of milliseconds after Jan 1, 1970 00:00:00 UTC
 #[derive(Debug, Deserialize, Serialize)]
@@ -62,7 +63,10 @@ impl LoggingTable {
         ])
     }
 
-    pub async fn to_df(ctx: &SessionContext, records: &Vec<Self>) -> Result<DataFrame, ClouWatchViewerError> {
+    pub async fn to_df(
+        ctx: &SessionContext,
+        records: &Vec<Self>,
+    ) -> Result<DataFrame, LoggingTableError> {
         let schema = Self::schema();
         let mut log_stream_names = vec![];
         let mut log_creation_times = vec![];
@@ -102,7 +106,7 @@ impl LoggingTable {
 }
 
 impl LoggingTable {
-    pub async fn df_to_records(df: DataFrame) -> Result<Vec<Self>, ClouWatchViewerError> {
+    pub async fn df_to_records(df: DataFrame) -> Result<Vec<Self>, LoggingTableError> {
         let mut stream = df.execute_stream().await?;
         let mut records = vec![];
         while let Some(batch) = stream.next().await.transpose()? {
@@ -115,7 +119,25 @@ impl LoggingTable {
             let messages = batch.column(6).as_string::<i32>();
             let ingestion_times = batch.column(7).as_primitive::<Int64Type>();
 
-            for (log_stream_name, log_creation_time, first_event_timestamp, last_event_timestamp, last_ingestion_time, timestamp, message, ingestion_time) in izip!(log_stream_names, log_creation_times, first_event_timestamps, last_event_timestamps, last_ingestion_times, timestamps, messages, ingestion_times) {
+            for (
+                log_stream_name,
+                log_creation_time,
+                first_event_timestamp,
+                last_event_timestamp,
+                last_ingestion_time,
+                timestamp,
+                message,
+                ingestion_time,
+            ) in izip!(
+                log_stream_names,
+                log_creation_times,
+                first_event_timestamps,
+                last_event_timestamps,
+                last_ingestion_times,
+                timestamps,
+                messages,
+                ingestion_times
+            ) {
                 records.push(Self {
                     log_stream_name: log_stream_name.map(|x| x.to_string()),
                     log_creation_time,
@@ -130,4 +152,74 @@ impl LoggingTable {
         }
         Ok(records)
     }
+}
+
+pub async fn process_logging_table(
+    client: Client,
+    log_group_name: &str,
+) -> Result<Vec<LoggingTable>, LoggingTableError> {
+    let log_streams = client
+        .describe_log_streams()
+        .log_group_name(log_group_name)
+        .send()
+        .await?;
+
+    let mut tasks = vec![];
+    for log_stream in log_streams.log_streams() {
+        if let Some(log_stream_name) = log_stream.log_stream_name() {
+            let task = tokio::spawn(processs_log(
+                client.clone(),
+                log_group_name.to_string(),
+                log_stream_name.to_string(),
+                log_stream.creation_time,
+                log_stream.first_event_timestamp,
+                log_stream.last_event_timestamp,
+                log_stream.last_ingestion_time,
+                true,
+            ));
+            tasks.push(task);
+        }
+    }
+
+    let mut records = vec![];
+    for task in tasks {
+        let logging_table = task.await??;
+        records.extend(logging_table);
+    }
+    Ok(records)
+}
+
+async fn processs_log(
+    client: Client,
+    log_group_name: String,
+    log_stream_name: String,
+    log_creation_time: Option<i64>,
+    first_event_timestamp: Option<i64>,
+    last_event_timestamp: Option<i64>,
+    last_ingestion_time: Option<i64>,
+    start_from_head: bool,
+) -> Result<Vec<LoggingTable>, LoggingTableError> {
+    let log_events = client
+        .get_log_events()
+        .log_group_name(log_group_name)
+        .log_stream_name(&log_stream_name)
+        .start_from_head(start_from_head)
+        .send()
+        .await?;
+
+    let mut res = vec![];
+    for event in log_events.events() {
+        let logging_table = LoggingTable::new(
+            Some(log_stream_name.clone()),
+            log_creation_time,
+            first_event_timestamp,
+            last_event_timestamp,
+            last_ingestion_time,
+            event.timestamp,
+            event.message.clone(),
+            event.ingestion_time,
+        );
+        res.push(logging_table);
+    }
+    Ok(res)
 }

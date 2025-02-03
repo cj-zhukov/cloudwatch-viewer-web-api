@@ -1,4 +1,17 @@
-use cloudwatch_viewer_web_api::{app_state::AppState, init_tracing, logging_table::LoggingTable, process_logging_table, utils::{aws::get_aws_client, constants::{prod::{self, LOGGING_TABLE_NAME, REGION}, LOG_GROUP_NAME_SECRET}, datafusion::register_logging_table}, Application};
+use cloudwatch_viewer_web_api::{
+    app_state::AppState,
+    logging_table::{process_logging_table, LoggingTable},
+    utils::{
+        aws::get_aws_client,
+        constants::{
+            prod::{self, LOGGING_TABLE_NAME, REGION},
+            LOG_GROUP_NAME_SECRET,
+        },
+        datafusion::register_logging_table,
+        tracing::init_tracing,
+    },
+    Application,
+};
 
 use color_eyre::Result;
 use datafusion::prelude::*;
@@ -16,7 +29,7 @@ async fn main() -> Result<()> {
     let app_state = AppState::new(ctx, client);
 
     let app = Application::build(prod::APP_ADDRESS, app_state).await?;
-    app.run().await?;   
- 
+    app.run().await?;
+
     Ok(())
 }
