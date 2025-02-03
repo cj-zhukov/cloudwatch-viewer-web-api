@@ -29,7 +29,7 @@ impl Application {
 
     pub async fn build(address: &str, app_state: AppState) -> Result<Self, ClouWatchViewerError> {        
         let router = Router::new()
-            .route("/", get(|| async { "CloudWatchViewer App" }))
+            .route("/", get(|| async { "CloudWatchViewer API" }))
             .route("/alive", get(ping))
             .route("/query", post(post_query))
             .with_state(app_state);

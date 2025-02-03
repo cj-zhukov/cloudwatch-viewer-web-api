@@ -9,12 +9,12 @@ use datafusion::{
     },
     prelude::*,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use itertools::izip;
 use tokio_stream::StreamExt;
 
 // i64 expressed as the number of milliseconds after Jan 1, 1970 00:00:00 UTC
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoggingTable {
     pub log_stream_name: Option<String>,
     pub log_creation_time: Option<i64>,
