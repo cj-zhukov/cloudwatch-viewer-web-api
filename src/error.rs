@@ -7,6 +7,8 @@ use color_eyre::eyre::Report;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::utils::tracing::log_error_chain;
+
 #[derive(Debug, Error)]
 pub enum ApiError {
     #[error("Incorrect query")]
@@ -26,6 +28,8 @@ pub struct ErrorResponse {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        log_error_chain(&self);
+
         let (status, error_message) = match self {
             ApiError::IncorrectQuery => (StatusCode::BAD_REQUEST, "Incorrect query"),
             ApiError::QueryResultIsEmpty => (StatusCode::NOT_FOUND, "Not found"),

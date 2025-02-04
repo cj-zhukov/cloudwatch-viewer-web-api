@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     let records = process_logging_table(client.clone(), &LOG_GROUP_NAME_SECRET).await?;
     let df = LoggingTable::to_df(&ctx, &records).await?;
     register_logging_table(&ctx, df.logical_plan().clone(), LOGGING_TABLE_NAME).await?;
-    let app_state = AppState::new(ctx, client);
+    let app_state = AppState::new(ctx, client); // #TODO is client is needed in state? 
 
     let app = Application::build(prod::APP_ADDRESS, app_state).await?;
     app.run().await?;

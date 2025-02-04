@@ -27,7 +27,6 @@ pub async fn post_query(
                 false => return Err(ApiError::IncorrectQuery)
             }
         },
-        // None => format!("select * from {LOGGING_TABLE_NAME} limit 10"),
         None => return Err(ApiError::IncorrectQuery)
     };
     let df = state

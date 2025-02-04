@@ -6,7 +6,6 @@ pub mod utils;
 
 use crate::app_state::AppState;
 use crate::routes::*;
-use crate::utils::constants::prod::LOGGING_TABLE_NAME;
 
 use axum::{
     routing::{get, post},

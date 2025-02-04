@@ -225,8 +225,8 @@ async fn processs_log(
 }
 
 pub fn query_validator(query: &str) -> bool {
-    if !query.contains("select") && !query.contains("SELECT") {
-        return false;
+    if query.contains("select") || query.contains("SELECT") {
+        return true;
     }
-    true
+    false
 }
